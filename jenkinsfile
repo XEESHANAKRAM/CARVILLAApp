@@ -2,9 +2,11 @@ pipeline {
     agent any
 
     environment {
-        DOCKER_IMAGE = 'xeeshanakram/my-html-app' 
-        IMAGE_TAG = "${env.BUILD_NUMBER}"
+        DOCKER_IMAGE = 'xeeshanakram/my-html-app'
+        IMAGE_TAG = "${env.BUILD_NUMBER}"        
         DOCKER_HUB_CREDS = 'dockerhub-credentials'
+        CONTAINER_NAME = 'my-html-container'     
+        EXTERNAL_PORT = '8000'                  
     }
 
     stages {
@@ -23,10 +25,9 @@ pipeline {
         stage('Test') {
             steps {
                 sh '''
-                    # Check if index.html exists and contains basic HTML structure
                     if [ -f index.html ]; then
                         echo "index.html exists"
-                        grep -i "<html" index.html || exit  Texts1
+                        grep -i "<html" index.html || exit 1
                     else
                         echo "index.html not found"
                         exit 1
@@ -45,6 +46,19 @@ pipeline {
                         '''
                     }
                 }
+            }
+        }
+
+        stage('Deploy') {
+            steps {
+                sh '''
+                    # Stop and remove any existing container with the same name
+                    docker stop ${CONTAINER_NAME} || true
+                    docker rm ${CONTAINER_NAME} || true
+
+                    # Run the container, mapping external port 8000 to internal port 80
+                    docker run --name ${CONTAINER_NAME} -d -p ${EXTERNAL_PORT}:80 ${DOCKER_IMAGE}:${IMAGE_TAG}
+                '''
             }
         }
     }
