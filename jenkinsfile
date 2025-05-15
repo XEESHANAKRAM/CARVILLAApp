@@ -1,0 +1,57 @@
+pipeline {
+    agent any
+
+    environment {
+        DOCKER_IMAGE = 'xeeshanakram/my-html-app' 
+        IMAGE_TAG = "${env.BUILD_NUMBER}"
+        DOCKER_HUB_CREDS = 'dockerhub-credentials'
+    }
+
+    stages {
+        stage('Clone Repository') {
+            steps {
+                git branch: 'main', url: 'https://github.com/XEESHANAKRAM/CARVILLAApp.git'
+            }
+        }
+
+        stage('Build Docker Image') {
+            steps {
+                sh 'docker build -t ${DOCKER_IMAGE}:${IMAGE_TAG} .'
+            }
+        }
+
+        stage('Test') {
+            steps {
+                sh '''
+                    # Check if index.html exists and contains basic HTML structure
+                    if [ -f index.html ]; then
+                        echo "index.html exists"
+                        grep -i "<html" index.html || exit  Texts1
+                    else
+                        echo "index.html not found"
+                        exit 1
+                    fi
+                '''
+            }
+        }
+
+        stage('Push Docker Image') {
+            steps {
+                script {
+                    withCredentials([usernamePassword(credentialsId: "${DOCKER_HUB_CREDS}", usernameVariable: 'DOCKER_HUB_USERNAME', passwordVariable: 'DOCKER_HUB_PASSWORD')]) {
+                        sh '''
+                            echo "${DOCKER_HUB_PASSWORD}" | docker login -u "${DOCKER_HUB_USERNAME}" --password-stdin
+                            docker push ${DOCKER_IMAGE}:${IMAGE_TAG}
+                        '''
+                    }
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            sh 'docker logout'
+        }
+    }
+}
